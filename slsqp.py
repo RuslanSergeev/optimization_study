@@ -35,8 +35,14 @@ bounds = Bounds(np.full(4, -0.03), np.full(4, 0.03))
 u0 = np.zeros(4)
 
 res = minimize(opt_fun, u0, method='SLSQP', jac=opt_der,
-    constraints=[eq_cons], options={'disp': True, 'ftol': 1.0e-12},
-    bounds=bounds, tol=1.0e-16)
+    constraints=[eq_cons], options={'disp': True, 'ftol': 1.0e-8},
+    bounds=bounds, tol=1.0e-12)
+
+# Optimization terminated successfully.    (Exit mode 0)
+#             Current function value: 0.00022926613141697832
+#             Iterations: 3
+#             Function evaluations: 4
+#             Gradient evaluations: 3
 
 print('final u: ', res.x)
 print('result torque: ', np.dot(A, res.x))
