@@ -15,3 +15,6 @@ This algorithm requires only the definition of function been optimized.
 - [Trusted region constrained optimization](trust_constr.py)
 The example calculates a control signal for a set of actuators, to
 obtain desired control vector.
+- [SLSQP constrained optimization](slsqp.py)
+The same example as in trusted-region: need to find a control
+vector for a set of actuators.

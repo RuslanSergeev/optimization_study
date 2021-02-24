@@ -3,7 +3,6 @@ from scipy.optimize import minimize
 from scipy.optimize import Bounds
 from scipy.optimize import LinearConstraint
 from scipy.optimize import SR1
-from scipy.stats import ortho_group
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt
@@ -13,7 +12,7 @@ A = np.eye(3, 4)
 A[:, 3] = np.full(3, 1.0)
 
 # Define random desired torque.
-M = np.random.randn(3)*0.03*np.sqrt(3)
+M = np.random.randn(3)*0.03
 
 #We'll find u0, u1, u2 between [-0.03, 0.03]
 bounds = Bounds(np.full(4, -0.03), np.full(4, 0.03))
@@ -23,17 +22,14 @@ lin_constr = LinearConstraint(A, M, M)
 
 #We'll search a minimal satisfiing control vector.
 def opt_fun(u):
-    return la.norm(u)
+    return np.dot(u, u)
 
 def opt_der(u):
-    if np.isclose(u, np.zeros_like(u)).all():
-        return np.zeros_like(u)
-    norm = la.norm(u)
-    der = np.zeros_like(u)
-    der[0] = -1 * u[0] / norm
-    der[1] = -1 * u[1] / norm
-    der[2] = -1 * u[2] / norm
-    der[3] = -1 * u[3] / norm
+    der = np.empty_like(u)
+    der[0] = 2 * u[0]
+    der[1] = 2 * u[1]
+    der[2] = 2 * u[2]
+    der[3] = 2 * u[3]
     return der
 
 #Initial control vector - not known.
