@@ -6,6 +6,7 @@ examples are located in this repository.
 
 ---
 
+## Optimization
 As for now, there presented following examples:
 - [Broyden-Fletcher-Goldfarb-Shano with loss function gradient provided.](bfgs_grad.py)  
 Need a fit of A*cos(x+phi)+b into a set of sensor measured data.  
@@ -25,3 +26,7 @@ vector for a set of actuators.
 The same problem. Much more efficient and shorter analitical solution.  
 Also we define an variable penalization matrix, instead of Identity matrix  
 of the previous examples.  
+
+## Miscelaneous examples:
+- [Numerical Jacobian computation with finite differences](Jacobian_2point.py)
+A simple straightforward algorithm for Jacobian estimation.
