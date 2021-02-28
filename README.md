@@ -28,5 +28,5 @@ Also we define an variable penalization matrix, instead of Identity matrix
 of the previous examples.  
 
 ## Miscelaneous examples:
-- [Numerical Jacobian computation with finite differences](Jacobian_2point.py)
+- [Numerical Jacobian computation with finite differences](Jacobian_2point.py)  
 A simple straightforward algorithm for Jacobian estimation.
