@@ -11,7 +11,6 @@ enum class padding_type {
 
 class Conv2d {
 public:
-
   Conv2d(const int _in_ch, const int _out_ch,
          const int _k_h, const int _k_w,
          const int _pad_h=0, const int _pad_w=0,
@@ -250,7 +249,7 @@ int main(int argc, char *argv[])
   for(int cur_out = 0; cur_out < out_ch; ++cur_out){
     cout << "channel: " << cur_out << endl;
     cout << dst[cur_out] << endl;
-  }  
+  }
 
   return 0;
 }
