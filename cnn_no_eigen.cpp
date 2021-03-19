@@ -2,6 +2,7 @@
 #include <array>
 #include <functional>
 #include <iostream>
+#include <limits>
 using namespace std;
 
 enum class padding_type {
@@ -184,49 +185,43 @@ Tensor_block calc_size(const int h_in, const int w_in,
   return o;
 }
 
-void cnn2d(const int in_ch, const int out_ch,
-           const int k_h, const int k_w,
+void cnn2d(const int str_h, const int str_w,
            const int pad_h, const int pad_w, padding_type ptype,
-           const int str_h, const int str_w,
            const int dil_h, const int dil_w,
            Tensor &bias,
            Tensor &kern,
            Tensor &src,
            Tensor &dst)
 {
+  int out_ch = kern.b.num_batch;
+  int in_ch = kern.b.num_chan;
+  int k_h = kern.b.num_rows;
+  int k_w = kern.b.num_cols;
+
   auto size = calc_size(src.b.num_rows, src.b.num_cols, k_h, k_w,
                         str_h, str_w, pad_h, pad_w, dil_h, dil_w);
-  if(not dst.size)
-  {
+  if(not dst.size){
     dst.resize(src.b.num_batch, out_ch, size.num_rows, size.num_cols);
   }
 
   //initialize output
   for(int cur_out=0; cur_out < out_ch; ++cur_out){
     //initialize with bias value.
-    for(int cur_h=0; cur_h < size.num_rows; ++cur_h)
-    {
-      for(int cur_w=0; cur_w < size.num_cols; ++cur_w)
-      {
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
         dst(0, cur_out, cur_h, cur_w) = bias(0, 0, 0, cur_out);
       }
     }
   }
 
   //convolution
-  for(int cur_out=0; cur_out < out_ch; ++cur_out)
-  {
-    for(int cur_h=0; cur_h < size.num_rows; ++cur_h)
-    {
-      for(int cur_w=0; cur_w < size.num_cols; ++cur_w)
-      {
+  for(int cur_out=0; cur_out < out_ch; ++cur_out){
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
         //actual cross-convolution kernel.
-        for(int cur_in=0; cur_in < in_ch; ++cur_in)
-        {
-          for(int cur_kh=0; cur_kh < k_h; ++cur_kh)
-          {
-            for(int cur_kw=0; cur_kw < k_w; ++cur_kw)
-            {
+        for(int cur_in=0; cur_in < in_ch; ++cur_in){
+          for(int cur_kh=0; cur_kh < k_h; ++cur_kh){
+            for(int cur_kw=0; cur_kw < k_w; ++cur_kw){
               dst(0, cur_out, cur_h, cur_w) +=
               src(0, cur_in,
                 cur_h*str_h+cur_kh*dil_h-pad_h,
@@ -236,6 +231,95 @@ void cnn2d(const int in_ch, const int out_ch,
             }//kw
           }//kh
         }//cur_in
+      }//cur_w
+    }//cur_h
+  }//cur_out
+}
+
+
+void maxpool2d(const int k_h, const int k_w,
+               const int str_h, const int str_w,
+               const int pad_h, const int pad_w,
+               const int dil_h, const int dil_w,
+               Tensor &src,
+               Tensor &dst)
+{
+  int out_ch = src.b.num_chan;
+
+  auto size = calc_size(src.b.num_rows, src.b.num_cols, k_h, k_w,
+                        str_h, str_w, pad_h, pad_w, dil_h, dil_w);
+  if(not dst.size){
+    dst.resize(src.b.num_batch, out_ch, size.num_rows, size.num_cols);
+  }
+
+  //initialize output
+  for(int cur_out=0; cur_out < out_ch; ++cur_out){
+    //initialize with bias value.
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
+        dst(0, cur_out, cur_h, cur_w) = std::numeric_limits<float>::lowest();
+      }
+    }
+  }
+
+  //convolution
+  for(int cur_out=0; cur_out < out_ch; ++cur_out){
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
+        //actual cross-convolution kernel.
+          for(int cur_kh=0; cur_kh < k_h; ++cur_kh){
+            for(int cur_kw=0; cur_kw < k_w; ++cur_kw){
+              dst(0, cur_out, cur_h, cur_w) =
+              std::max(dst(0, cur_out, cur_h, cur_w),
+                       src(0, cur_out,
+                           cur_h*str_h+cur_kh*dil_h-pad_h,
+                           cur_w*str_w+cur_kw*dil_w-pad_w));
+            }//kw
+          }//kh
+      }//cur_w
+    }//cur_h
+  }//cur_out
+}
+
+void avgpool2d(const int k_h, const int k_w,
+               const int str_h, const int str_w,
+               const int pad_h, const int pad_w,
+               const int dil_h, const int dil_w,
+               Tensor &src,
+               Tensor &dst)
+{
+  int out_ch = src.b.num_chan;
+  int kernel_size = k_h*k_w;
+  auto size = calc_size(src.b.num_rows, src.b.num_cols, k_h, k_w,
+                        str_h, str_w, pad_h, pad_w, dil_h, dil_w);
+  if(not dst.size){
+    dst.resize(src.b.num_batch, out_ch, size.num_rows, size.num_cols);
+  }
+
+  //initialize output
+  for(int cur_out=0; cur_out < out_ch; ++cur_out){
+    //initialize with bias value.
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
+        dst(0, cur_out, cur_h, cur_w) = 0;
+      }
+    }
+  }
+
+  //convolution
+  for(int cur_out=0; cur_out < out_ch; ++cur_out){
+    for(int cur_h=0; cur_h < size.num_rows; ++cur_h){
+      for(int cur_w=0; cur_w < size.num_cols; ++cur_w){
+        //actual cross-convolution kernel.
+          for(int cur_kh=0; cur_kh < k_h; ++cur_kh){
+            for(int cur_kw=0; cur_kw < k_w; ++cur_kw){
+              dst(0, cur_out, cur_h, cur_w) +=
+                    src(0, cur_out,
+                        cur_h*str_h+cur_kh*dil_h-pad_h,
+                        cur_w*str_w+cur_kw*dil_w-pad_w);
+            }//kw
+          }//kh
+          dst(0, cur_out, cur_h, cur_w) /= kernel_size;
       }//cur_w
     }//cur_h
   }//cur_out
@@ -281,18 +365,31 @@ int main(int argc, char *argv[])
 
   Tensor dst;
 
-  cnn2d(in_ch, out_ch,
-             k_h, k_w,
-             pad_h, pad_w, padding_type::zero_pad,
-             strd_h, strd_w,
-             dil_h, dil_w,
-             bias, kernels,
-             src, dst);
+  cnn2d(strd_h, strd_w,
+        pad_h, pad_w, padding_type::zero_pad,
+        dil_h, dil_w,
+        bias, kernels, src, dst);
 
   kernels.print();
   bias.print();
   src.print();
   dst.print();
+
+  Tensor dst_pool;
+  maxpool2d(2, 2,
+            2, 2,
+            0, 0,
+            1, 1,
+            dst, dst_pool);
+  dst_pool.print();
+
+  Tensor avg_pool;
+  avgpool2d(2, 2,
+            2, 2,
+            0, 0,
+            1, 1,
+            dst, avg_pool);
+  avg_pool.print();
 
   // std::cout << std::endl;
   // Tensor_block b;

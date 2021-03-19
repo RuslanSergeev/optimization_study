@@ -19,7 +19,13 @@ h, w = 6, 6;
 t = torch.Tensor(list(range(h*w))).reshape(1, in_ch, h, w)+1
 out = cnv(t)
 
-print(weights)
-print(bias)
-print(t)
 print(out)
+
+
+avg = nn.AvgPool2d(kernel_size=2, stride=2, padding=0);
+avg_res = avg(out)
+print(avg_res)
+
+mx = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+max_res = mx(out)
+print(max_res)
