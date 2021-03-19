@@ -28,10 +28,10 @@ Also we define an variable penalization matrix, instead of Identity matrix
 of the previous examples.  
 
 ## Dimensionality reduction
-- [Moons classification with sklearn kernelized PCA](PCA_moons_simple.py)
-A simple toy data classification using sklearn kernelized PCA.
-- [Kernelized PCA from scratch](PCA_moons_simple.py)
-The same dataset as in above. RBF PCA written from scratch.
+- [Moons classification with sklearn kernelized PCA](PCA_moons_simple.py)  
+A simple toy data classification using sklearn kernelized PCA.  
+- [Kernelized PCA from scratch](PCA_moons_simple.py)  
+The same dataset as in above. RBF PCA written from scratch.  
 
 ## Miscelaneous examples:
 - [Numerical Jacobian computation with finite differences](Jacobian_2point.py)  
