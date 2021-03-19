@@ -6,6 +6,10 @@ from sklearn.datasets import make_moons
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
+# See this article:
+# https://en.wikipedia.org/wiki/Kernel_principal_component_analysis
+# A good explanation on kernelized PCA also available on Sebastian Rashka's book.
+
 #number of samples
 N=500
 
