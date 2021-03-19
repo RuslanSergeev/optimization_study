@@ -32,7 +32,8 @@ K = np.empty((n, n))
 for i in range(n):
     for j in range(n):
         K[i, j] = rbf(x_tr[i], x_tr[j])
-#Centralized covariation matrix.
+# Centralized covariation matrix.
+# https://en.wikipedia.org/wiki/Centering_matrix
 O = np.full((n, n), 1.0/n)
 K = K - O@K - K@O + O@K@O
 
