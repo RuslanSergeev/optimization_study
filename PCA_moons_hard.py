@@ -53,7 +53,7 @@ def features_projections(x_lowdim, x_train, eig):
     for m in range(M):
         for k in range(dims):
             for i in range(N):
-                x_highdim[m, k] += v[i, k]*rbf(x_train[i], x_lowdim[m])
+                x_highdim[m, k] += eig[i, k]*rbf(x_train[i], x_lowdim[m])
     return x_highdim
 
 #create high dimensional train and test features.

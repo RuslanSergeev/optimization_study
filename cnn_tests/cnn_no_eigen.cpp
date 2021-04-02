@@ -1,13 +1,11 @@
 #include <iostream>
 #include <array>
-#include <functional>
 #include <iostream>
 #include <limits>
 #include <numeric>
-using namespace std;
 
 enum class Storage_order {
-  row_major,        // C/C++/Objective-C, numpy, pyTorch, PL/I, Pascal
+  row_major,        // C/C++/Objective-C, numpy, PyTorch, PL/I, Pascal
   col_major         // Eigen, Fortran, MATLAB, GNU Octave, R, Julia, and Scilab
 };
 
@@ -24,7 +22,7 @@ public:
     int row_min=0,   num_rows;
     int col_min=0,   num_cols;
 
-    int size() const
+    int numel() const
     {
         return num_batch*num_chan*num_rows*num_cols;
     }
@@ -33,10 +31,9 @@ public:
 class Tensor{
 public:
     Tensor(int num_batch=0, int num_chan=0, int num_rows=0, int num_cols=0,
-           Storage_order stor_order=Storage_order::row_major, float *existing_data=nullptr)
+           Storage_order new_order=Storage_order::row_major, float *existing_data=nullptr)
     {
-        order = stor_order;
-        resize(num_batch, num_chan, num_rows, num_cols, existing_data);
+        resize(num_batch, num_chan, num_rows, num_cols, new_order, existing_data);
     }
 
     virtual ~Tensor()
@@ -48,39 +45,84 @@ public:
     }
 
     void resize(int num_batch, int num_chan, int num_rows, int num_cols,
+                Storage_order new_order = Storage_order::row_major,
                 float *new_data=nullptr)
     {
         int new_size = num_cols*num_rows*num_chan*num_batch;
+        order = new_order;
 
         //delete only if it is an buffer owner (not a reference)
-        if(new_size!=size() and own){
+        if(new_size!=numel() and own){
             delete[] data;
         }
 
         data = new_data ? new_data : new float[new_size];
         own  = new_data ? false    : true;
 
-        reshape(num_batch, num_chan, num_rows, num_cols);
+        // https://en.wikipedia.org/wiki/Row-_and_column-major_order
+        stride[3] = Storage_order::col_major == order? num_rows : 1;
+        stride[2] = Storage_order::row_major == order? num_cols : 1;
+        stride[1] = num_rows*num_cols;
+        stride[0] = num_rows*num_cols*num_chan;
+
+        shape[0] = num_batch;
+        shape[1] = num_chan;
+        shape[2] = num_rows;
+        shape[3] = num_cols;
     }
 
     //change tensor dimensions
-    void transpose(const int dim1, const int dim2)
+    Tensor &transpose(const int dim1, const int dim2)
     {
-        std::swap(idx[dim1], idx[dim2]);
+        std::swap(stride[dim1], stride[dim2]);
+        std::swap(shape[dim1], shape[dim2]);
+
+        return *this;
     }
 
-    //change the tensor form.
-    void reshape(int batch, int chan, int rows, int cols)
+    // reshape(*shape) -> Tensor
+    //
+    // Returns a tensor copy with the same data and number of elements as :attr:`self`
+    // but with the specified shape.
+    Tensor reshape(int batch, int chan, int rows, int cols,
+                  Storage_order new_order=Storage_order::row_major)
     {
-        // https://en.wikipedia.org/wiki/Row-_and_column-major_order
-        stride[idx[3]] = Storage_order::col_major == order? rows : 1;
-        stride[idx[2]] = Storage_order::row_major == order? cols : 1;
-        stride[idx[1]] = rows*cols;
-        stride[idx[0]] = rows*cols*chan;
-        lens[idx[0]] = batch;
-        lens[idx[1]] = chan;
-        lens[idx[2]] = rows;
-        lens[idx[3]] = cols;
+        Tensor tcopy(batch, chan, rows, cols, new_order);
+        int idst = 0;
+        for(int b=0; b<shape[0]; ++b)
+          for(int c=0; c<shape[1]; ++c)
+            for(int row=0; row<shape[2]; ++row)
+              for(int col=0; col<shape[3]; ++col){
+                tcopy.data[idst] = operator()(b, c, row, col);
+                ++idst;
+              }
+
+        return tcopy;
+    }
+
+    // view(*shape) -> Tensor
+    //
+    // Returns a new tensor with the same data as the :attr:`self` tensor but of a
+    // different :attr:`shape`.
+    Tensor view(int batch, int chan, int rows, int cols,
+                Storage_order new_order=Storage_order::row_major)
+    {
+        Tensor tview(batch, chan, rows, cols, new_order, data);
+        return tview;
+    }
+
+    // Copy a block from tensor into a new tensor.
+    Tensor copy(const Tensor_block &block, Storage_order order=Storage_order::row_major)
+    {
+      Tensor t(block.num_batch, block.num_chan,
+               block.num_rows, block.num_cols, order);
+      for(int batch=block.batch_min, dst_batch=0; dst_batch < block.num_batch; ++batch, ++dst_batch)
+        for(int chan=block.chan_min, dst_chan=0; dst_chan < block.num_chan; ++chan, ++dst_chan)
+          for(int row=block.row_min, dst_row=0; dst_row < block.num_rows; ++row, ++dst_row)
+            for(int col=block.col_min, dst_col=0; dst_col < block.num_cols; ++col, ++dst_col){
+              t(dst_batch, dst_chan, dst_row, dst_col) = this->operator()(batch, chan, row, col);
+            }
+      return t;
     }
 
     //Gets the tensor element located at [batch, chan, row, col]
@@ -97,10 +139,10 @@ public:
         } break;
         case Padding_type::same_pad:
         {
-            return get_same_pad(batch, chan, row, col);;
+            return get_same_pad(batch, chan, row, col);
         }break;
         default:{
-            return get_zero_pad(batch, chan, row, col);;
+            return get_zero_pad(batch, chan, row, col);
         }break;
         }
     }
@@ -108,16 +150,16 @@ public:
     //output the tensor to stdout
     void print()
     {
-        for(int batch=0; batch < lens[idx[0]]; ++batch)
+        for(int batch=0; batch < shape[0]; ++batch)
         {
             std::cout << "batch " << batch << std::endl;
-            for(int chan=0; chan < lens[idx[1]]; ++chan)
+            for(int chan=0; chan < shape[1]; ++chan)
             {
                 std::cout << "  chan " << chan << std::endl;
-                for(int row=0; row < lens[idx[2]]; ++row)
+                for(int row=0; row < shape[2]; ++row)
                 {
                     std::cout << "    ";
-                    for(int col=0; col < lens[idx[3]]; ++col)
+                    for(int col=0; col < shape[3]; ++col)
                     {
                         std::cout << this->operator()(batch, chan, row, col) << " ";
                     }
@@ -127,15 +169,15 @@ public:
         }
     }
 
-    int size(){
-        return std::accumulate(lens.begin(), lens.end(), 1, [](int a, int b){
+    // Number of elements in this tensor.
+    int numel(){
+        return std::accumulate(shape.begin(), shape.end(), 1, [](int a, int b){
             return a * b;
         });
     }
 
     std::array<int, 4> stride;
-    std::array<int, 4> lens = {0, 0, 0, 0};
-    std::array<int, 4> idx  = {0, 1, 2, 3};
+    std::array<int, 4> shape = {0, 0, 0, 0};
     Storage_order order;
     float *data = nullptr;
     bool own=false;
@@ -146,8 +188,8 @@ private:
     //get an element in case of zero-padding
     float &get_zero_pad(const int batch, const int chan, const int row, const int col)
     {
-        if(batch < 0 or batch>=lens[idx[0]] or chan  < 0 or chan >=lens[idx[1]] or
-           row   < 0 or row  >=lens[idx[2]]  or col  < 0 or col  >=lens[idx[3]])
+        if(batch < 0 or batch>=shape[0] or chan  < 0 or chan >=shape[1] or
+           row   < 0 or row  >=shape[2]  or col  < 0 or col  >=shape[3])
         {
             zero=0;
             return zero;
@@ -158,10 +200,10 @@ private:
     //get an element in case of same element padding
     float &get_same_pad(const int batch, const int chan, const int row, const int col)
     {
-        auto new_batch = std::min(lens[idx[0]]-1, std::max(0, batch));
-        auto new_chan  = std::min(lens[idx[1]]-1, std::max(0, chan));
-        auto new_row   = std::min(lens[idx[2]]-1, std::max(0, row));
-        auto new_col   = std::min(lens[idx[3]]-1, std::max(0, col));
+        auto new_batch = std::min(shape[0]-1, std::max(0, batch));
+        auto new_chan  = std::min(shape[1]-1, std::max(0, chan));
+        auto new_row   = std::min(shape[2]-1, std::max(0, row));
+        auto new_col   = std::min(shape[3]-1, std::max(0, col));
 
         return get_no_pad(new_batch, new_chan, new_row, new_col);
     }
@@ -170,7 +212,7 @@ private:
     //Works with row and col-major tensors.
     float &get_no_pad(const int batch, const int chan, const int row, const int col)
     {
-        int offset = col*stride[idx[3]] + row*stride[idx[2]] + chan*stride[idx[1]] + batch*stride[idx[0]];
+        int offset = col*stride[3] + row*stride[2] + chan*stride[1] + batch*stride[0];
         return data[offset];
     }
 };
@@ -200,14 +242,14 @@ void cnn2d(const int str_h, const int str_w,
            Tensor &src,
            Tensor &dst)
 {
-    int out_ch = kern.lens[0];
-    int in_ch = kern.lens[1];
-    int k_h = kern.lens[2];
-    int k_w = kern.lens[3];
+    int out_ch = kern.shape[0];
+    int in_ch = kern.shape[1];
+    int k_h = kern.shape[2];
+    int k_w = kern.shape[3];
 
-    auto size = calc_size(src.lens[2], src.lens[3], k_h, k_w,
+    auto size = calc_size(src.shape[2], src.shape[3], k_h, k_w,
                           str_h, str_w, pad_h, pad_w, dil_h, dil_w);
-    dst.resize(src.lens[0], out_ch, size.num_rows, size.num_cols);
+    dst.resize(src.shape[0], out_ch, size.num_rows, size.num_cols, dst.order);
 
     //initialize output
     for(int cur_out=0; cur_out < out_ch; ++cur_out){
@@ -249,11 +291,11 @@ void maxpool2d(const int k_h, const int k_w,
                Tensor &src,
                Tensor &dst)
 {
-    int out_ch = src.lens[1];
+    int out_ch = src.shape[1];
 
-    auto size = calc_size(src.lens[2], src.lens[3], k_h, k_w,
+    auto size = calc_size(src.shape[2], src.shape[3], k_h, k_w,
                           str_h, str_w, pad_h, pad_w, dil_h, dil_w);
-    dst.resize(src.lens[0], out_ch, size.num_rows, size.num_cols);
+    dst.resize(src.shape[0], out_ch, size.num_rows, size.num_cols, dst.order);
 
     //initialize output
     for(int cur_out=0; cur_out < out_ch; ++cur_out){
@@ -291,11 +333,11 @@ void avgpool2d(const int k_h, const int k_w,
                Tensor &src,
                Tensor &dst)
 {
-    int out_ch = src.lens[1];
+    int out_ch = src.shape[1];
     int kernel_size = k_h*k_w;
-    auto size = calc_size(src.lens[2], src.lens[3], k_h, k_w,
+    auto size = calc_size(src.shape[2], src.shape[3], k_h, k_w,
                           str_h, str_w, pad_h, pad_w, dil_h, dil_w);
-    dst.resize(src.lens[0], out_ch, size.num_rows, size.num_cols);
+    dst.resize(src.shape[0], out_ch, size.num_rows, size.num_cols, dst.order);
 
     //initialize output
     for(int cur_out=0; cur_out < out_ch; ++cur_out){
@@ -330,82 +372,69 @@ void avgpool2d(const int k_h, const int k_w,
 #ifdef TENSOR_CNN_TESTING
 int main(int argc, char *argv[])
 {
+  const int in_ch = 1;
+  const int out_ch = 3;
+  const int k_h=3, k_w=3;
+  const int strd_h=2, strd_w=1;
+  const int pad_h=2, pad_w=1;
+  const int dil_h=2, dil_w=1;
+  const int in_h = 6;
+  const int in_w = 6;
 
-  float d[48];
-  for(int i = 0; i < 48; ++i){
-    d[i] = i+1;
+  Tensor src(1, in_ch, in_h, in_w);
+  for(int ch = 0; ch < in_ch; ++ch){
+    float el = 0;
+    for(int cur_h = 0; cur_h < in_h; ++cur_h){
+      for(int cur_w = 0; cur_w < in_w; ++cur_w){
+        src(0, ch, cur_h, cur_w) = ++el;
+      }
+    }
   }
 
-  Tensor t(2, 2, 3, 4, Storage_order::row_major, d);
-  t.reshape(2, 2, 1, 12);
-  t.reshape(1, 1, 1, 48);
-  // t.reshape(1, 1, 4, 12);
-  // Tensor tt(1, 1, 4, 12, Storage_order::row_major, d);
-  t.print();
+  Tensor kernels(out_ch, in_ch, k_h, k_w);
+  float kvalue = 0;
+  for(int cur_out=0; cur_out<out_ch; ++cur_out){
+    for(int cur_in=0; cur_in<in_ch; ++cur_in){
+      for(int cur_h = 0; cur_h < k_h; ++cur_h){
+        for(int cur_w=0; cur_w < k_w; ++cur_w){
+            kernels(cur_out, cur_in, cur_h, cur_w) = kvalue++;
+        }
+      }
+    }
+  }
 
-  // const int in_ch = 1;
-  // const int out_ch = 3;
-  // const int k_h=3, k_w=3;
-  // const int strd_h=2, strd_w=1;
-  // const int pad_h=2, pad_w=1;
-  // const int dil_h=2, dil_w=1;
-  // const int in_h = 6;
-  // const int in_w = 6;
-  //
-  // Tensor src(1, in_ch, in_h, in_w);
-  // for(int ch = 0; ch < in_ch; ++ch){
-  //   float el = 0;
-  //   for(int cur_h = 0; cur_h < in_h; ++cur_h){
-  //     for(int cur_w = 0; cur_w < in_w; ++cur_w){
-  //       src(0, ch, cur_h, cur_w) = ++el;
-  //     }
-  //   }
-  // }
-  //
-  // Tensor kernels(out_ch, in_ch, k_h, k_w);
-  // float kvalue = 0;
-  // for(int cur_out=0; cur_out<out_ch; ++cur_out){
-  //   for(int cur_in=0; cur_in<in_ch; ++cur_in){
-  //     for(int cur_h = 0; cur_h < k_h; ++cur_h){
-  //       for(int cur_w=0; cur_w < k_w; ++cur_w){
-  //           kernels(cur_out, cur_in, cur_h, cur_w) = kvalue++;
-  //       }
-  //     }
-  //   }
-  // }
-  //
-  // Tensor bias(1, 1, 1, out_ch);
-  // for(int cur_out=0; cur_out<out_ch; ++cur_out){
-  //   bias(0, 0, 0, cur_out) = cur_out;
-  // }
-  //
-  // Tensor dst;
-  //
-  // cnn2d(strd_h, strd_w,
-  //       pad_h, pad_w, Padding_type::zero_pad,
-  //       dil_h, dil_w,
-  //       bias, kernels, src, dst);
-  //
-  // kernels.print();
-  // bias.print();
-  // src.print();
-  // dst.print();
-  //
-  // Tensor dst_pool;
-  // maxpool2d(2, 2,
-  //           2, 2,
-  //           0, 0,
-  //           1, 1,
-  //           dst, dst_pool);
-  // dst_pool.print();
-  //
-  // Tensor avg_pool;
-  // avgpool2d(2, 2,
-  //           2, 2,
-  //           0, 0,
-  //           1, 1,
-  //           dst, avg_pool);
-  // avg_pool.print();
+  Tensor bias(1, 1, 1, out_ch);
+  for(int cur_out=0; cur_out<out_ch; ++cur_out){
+    bias(0, 0, 0, cur_out) = cur_out;
+  }
+
+  Tensor dst;
+
+  cnn2d(strd_h, strd_w,
+        pad_h, pad_w, Padding_type::zero_pad,
+        dil_h, dil_w,
+        bias, kernels, src, dst);
+
+  kernels.print();
+  bias.print();
+  src.print();
+  dst.print();
+
+  Tensor dst_pool;
+  maxpool2d(2, 2,
+            2, 2,
+            0, 0,
+            1, 1,
+            dst, dst_pool);
+  dst_pool.print();
+
+  Tensor avg_pool;
+  avgpool2d(2, 2,
+            2, 2,
+            0, 0,
+            1, 1,
+            dst, avg_pool);
+  avg_pool.print();
 
   return 0;
 }
