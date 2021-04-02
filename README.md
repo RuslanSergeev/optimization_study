@@ -8,6 +8,9 @@ examples are located in this repository.
 
 ## Optimization
 As for now, there presented following examples:
+- [SGD from scratch example](sgd_scratch.py)
+A simple $\alpha \cdot cos(\beta\cdot x+\gamma)$ optimization problem considered in the example, but
+it is capable to optimize any given loss function.
 - [Broyden-Fletcher-Goldfarb-Shano with loss function gradient provided.](bfgs_grad.py)  
 Need a fit of A*cos(x+phi)+b into a set of sensor measured data.  
 - [Broyden-Fletcher-Goldfarb-Shano with no loss function gradient provided.](bfgs_nograd.py)  
