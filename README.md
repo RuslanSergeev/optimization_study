@@ -8,6 +8,9 @@ examples are located in this repository.
 
 ## Optimization
 As for now, there presented following examples:
+- [Stochastic Newton-Gauss method is implemented](NewtonGauss.py)
+A simple $\alpha \cdot cos(\beta\cdot x+\gamma)$ optimization problem considered in the example, but
+it is capable to optimize any given loss function.
 - [SGD from scratch example](sgd_scratch.py)
 A simple $\alpha \cdot cos(\beta\cdot x+\gamma)$ optimization problem considered in the example, but
 it is capable to optimize any given loss function.

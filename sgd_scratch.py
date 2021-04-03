@@ -19,17 +19,17 @@ def get_batch(x, y, batch_size):
 
 #train on batch_size samples of x_train, y_train
 #dtheta - is the previous theta increment. used for momentum.
-def train_batch(x_train, y_train, theta, gradfun, lr, momentum, batch_size, dtheta):
+def train_batch(x_train, y_train, theta, gradloss, lr, momentum, batch_size, dtheta):
     train_dset = get_batch(x_train, y_train, batch_size)
     for x_i, y_i in train_dset:
         dtheta*=momentum
-        dtheta+=lr*gradfun(x_i, y_i, theta)
+        dtheta+=lr*gradloss(x_i, y_i, theta)
         theta -= dtheta
 
 #perform loss calculation all over the test dataset.
 def test_all(x_test, y_test, theta, loss):
     total_loss = 0
-    test_dset = get_batch(x_train, y_train, x_test.shape[0])
+    test_dset = get_batch(x_test, y_test, x_test.shape[0])
     for x_i, y_i in test_dset:
         total_loss += loss(x_i, y_i, theta)
     return total_loss / x_test.shape[0]
@@ -37,19 +37,19 @@ def test_all(x_test, y_test, theta, loss):
 
 #minimize over the traind dataset.
 #any epoch operates on batch_size randomly selected test samples.
-def minimize(x_train, y_train, x_test, y_test, theta, loss, gradfun=None,
+def minimize(x_train, y_train, x_test, y_test, theta, loss, gradloss=None,
              lr=0.01, momentum=0.9,
              num_epochs=100, batch_size = 100, test_any=1,
              weight_decay=0.9, decr_any=5):
-    if not gradfun:
-        gradfun = estimate_grad(loss)
+    if not gradloss:
+        gradloss = estimate_grad(loss)
     #perform a simple learning rate scheduling technique
     prev_loss = 0
     num_bad_loss = 0
     #initial direction of theta change.
     dtheta = np.zeros_like(theta)
     for epoch in range(num_epochs):
-        train_batch(x_train, y_train, theta, gradfun, lr, momentum, batch_size, dtheta)
+        train_batch(x_train, y_train, theta, gradloss, lr, momentum, batch_size, dtheta)
         if not (epoch+1) % test_any:
             train_loss = test_all(x_train, y_train, theta, loss)
             test_loss =  test_all(x_test, y_test, theta, loss)
