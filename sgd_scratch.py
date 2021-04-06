@@ -17,14 +17,15 @@ def get_batch(x, y, batch_size):
      for i in idx[:batch_size]:
          yield (x[i], y[i])
 
-#train on batch_size samples of x_train, y_train
-#dtheta - is the previous theta increment. used for momentum.
+# train on batch_size samples of x_train, y_train
+# dtheta - is the previous theta increment. used for momentum.
+# using a minibatch approach to weights update.
 def train_batch(x_train, y_train, theta, gradloss, lr, momentum, batch_size, dtheta):
     train_dset = get_batch(x_train, y_train, batch_size)
     for x_i, y_i in train_dset:
         dtheta*=momentum
         dtheta+=lr*gradloss(x_i, y_i, theta)
-        theta -= dtheta
+    theta -= dtheta / batch_size
 
 #perform loss calculation all over the test dataset.
 def test_all(x_test, y_test, theta, loss):
@@ -76,6 +77,12 @@ if __name__ == '__main__':
         err = y_i - y_fun(x_i, theta)
         return 0.5 * err * err
 
+    #sigmoid-like loss function for the y_fun.
+    def sigmoid_loss(x_i, y_i, theta):
+        err = y_i - y_fun(x_i, theta)
+        err = 1 / (1 + np.exp(-1*err)) - 0.5
+        return err * err
+
     #analitical gradient for y_fun.
     def grad_loss(x_i, y_i, theta):
         err = y_i - y_fun(x_i, theta)
@@ -86,16 +93,16 @@ if __name__ == '__main__':
     x = np.linspace(0, 10, 1000)
     phi_opt = np.array([3, 2, 1])
     y = y_fun(x, phi_opt)
-    y_data = y + 0.3*(np.random.rand(y.shape[0])-0.5)
+    y_data = y + 1*(np.random.rand(y.shape[0])-0.5)
 
     train_part = 0.9
-    phi = np.random.rand(3)
+    phi = phi_opt + 0.3*(np.random.rand(3)-0.5)
     x_train = x[:int(x.shape[0]*train_part)]
     x_test = x[int(x.shape[0]*train_part):]
     y_train = y_data[:int(y.shape[0]*train_part)]
     y_test =  y_data[int(y.shape[0]*train_part):]
     minimize(x_train, y_train, x_test, y_test, phi, y_loss, lr=1.0e-3,
-        num_epochs=200, batch_size=500, decr_any=30)
+        num_epochs=10000, batch_size=3, decr_any=100)
 
     y_est = y_fun(x, phi)
     print('parameters found: ', phi)
