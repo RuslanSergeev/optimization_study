@@ -33,6 +33,10 @@ The same problem. Much more efficient and shorter analitical solution.
 Also we define an variable penalization matrix, instead of Identity matrix  
 of the previous examples.  
 
+## Clasterization
+- [A very simple implementation of k-means algorithm](kmeans.py)
+A buggy implementation, but it's quite good when to illustration simplicity.
+
 ## Dimensionality reduction
 - [Moons classification with sklearn kernelized PCA](PCA_moons_simple.py)  
 A simple toy data classification using sklearn kernelized PCA.  
