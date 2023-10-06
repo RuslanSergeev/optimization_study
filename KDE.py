@@ -38,14 +38,24 @@ def kde(m, k=p_std(0, 1), h=1.0):
     return K
 
 def test_kde():
+    # Generate data from a triangular distribution
     m = np.random.triangular(-3, 0, 8, 200)
+
+    # Compute the KDE using a normal distribution as the kernel
+    # different bandwidths: 0.1, 0.5, 1.0
     K01 = kde(m, h=0.1)
     K05 = kde(m, h=0.5)
     K10 = kde(m, h=1.0)
+
+    # compute the probability density function of the data
+    # using a normal distribution with the same mean and
+    # standard deviation as the data points
     x = np.linspace(-10, 10, 1000)
     y01 = K01(x)
     y05 = K05(x)
     y10 = K10(x)
+
+    # plot the data and the KDE
     plt.plot(x, y01, label='h=0.1')
     plt.plot(x, y05, label='h=0.5')
     plt.plot(x, y10, label='h=1.0')
